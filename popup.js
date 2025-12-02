@@ -27,10 +27,6 @@ const TOGGLE_LABEL_SHOWN = '▼ 返信対象のメールを隠す';
 const OVERLAY_DEFAULT_MESSAGE =
   'Gmailの返信ボックスを開いている状態で再度拡張機能を起動してください。';
 const OVERLAY_SETTINGS_MESSAGE = '未入力の設定項目があります。';
-const PRICE_INPUT_PER_M = 0.05; // USD per 1M tokens (gpt-5-nano input)
-const PRICE_OUTPUT_PER_M = 0.4; // USD per 1M tokens (gpt-5-nano output)
-const AVG_CHARS_PER_TOKEN = 4;
-const USD_TO_JPY = 150;
 const MODEL = 'gpt-5-nano';
 const FETCH_TIMEOUT_MS = 15000;
 
@@ -118,6 +114,25 @@ function resetOutput() {
   resetSnippet();
 }
 
+function setLoading() {
+  resetOutput();
+  isGenerating = true;
+  elements.draftSpinner.classList.remove('hidden');
+  elements.draftStatus.classList.remove('hidden');
+}
+
+function setReady() {
+  isGenerating = false;
+  elements.draftSpinner.classList.add('hidden');
+  elements.draftStatus.classList.add('hidden');
+}
+
+function setError(message) {
+  setReady();
+  elements.copyStatus.textContent = message || '生成に失敗しました';
+  elements.copy.disabled = false;
+}
+
 async function loadSettings() {
   const stored = await chrome.storage.sync.get(['apiKey', 'prompt', 'senderName']);
   elements.apiKey.value = stored.apiKey || '';
@@ -147,9 +162,6 @@ function disableGeneration(message, alertMessage = OVERLAY_DEFAULT_MESSAGE, incl
   }
   resetOutput();
   showOverlayWithSettingsFallback(alertMessage, includeSettings);
-}
-
-function enableGeneration() {
 }
 
 function createIconData(color) {
@@ -319,10 +331,7 @@ async function generateDraft() {
     return;
   }
 
-  isGenerating = true;
-  resetOutput();
-  elements.draftSpinner.classList.remove('hidden');
-  elements.draftStatus.classList.remove('hidden');
+  setLoading();
 
   const baseInstructionsText = [
     '【基本ルール】',
@@ -366,33 +375,7 @@ async function generateDraft() {
   };
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
-
-    const res = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`
-      },
-      body: JSON.stringify(payload),
-      signal: controller.signal
-    });
-    clearTimeout(timeout);
-
-    let data = null;
-    if (!res.ok) {
-      // Try to read error body for clearer message
-      try {
-        data = await res.json();
-      } catch (e) {
-        // ignore JSON parse error, use status text instead
-      }
-      const apiMessage = data?.error?.message || res.statusText || 'unknown error';
-      throw new Error(`API error: ${res.status} ${apiMessage}`);
-    }
-
-    data = data || (await res.json());
+    const data = await callResponses(apiKey, payload, FETCH_TIMEOUT_MS);
     const draftText =
       typeof data?.output_text === 'string' && data.output_text.trim()
         ? data.output_text.trim()
@@ -417,11 +400,9 @@ async function generateDraft() {
     elements.copyStatus.textContent = '';
   } catch (err) {
     console.error(err);
-    elements.copyStatus.textContent = err.message || '生成に失敗しました';
+    setError(err.message || '生成に失敗しました');
   } finally {
-    isGenerating = false;
-    elements.draftSpinner.classList.add('hidden');
-    elements.draftStatus.classList.add('hidden');
+    setReady();
     elements.copy.disabled = false;
     if (elements.draft.textContent && lastContext) {
       elements.copy.classList.remove('hidden');
