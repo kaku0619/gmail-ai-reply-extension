@@ -20,8 +20,6 @@ const elements = {
   tabContents: document.querySelectorAll('.tab-content')
 };
 
-const DEFAULT_PROMPT =
-  'シンプルな日本語で返信案を作ってください。';
 const SAVE_DEFAULT_LABEL = '保存';
 const COPY_DEFAULT_LABEL = '生成結果をコピー';
 const TOGGLE_LABEL_HIDDEN = '▶ 返信対象のメールを表示';
@@ -29,12 +27,6 @@ const TOGGLE_LABEL_SHOWN = '▼ 返信対象のメールを隠す';
 const OVERLAY_DEFAULT_MESSAGE =
   'Gmailの返信ボックスを開いている状態で再度拡張機能を起動してください。';
 const OVERLAY_SETTINGS_MESSAGE = '未入力の設定項目があります。';
-const BASE_SYSTEM_INSTRUCTIONS =
-  'あなたは受信者に返信するアシスタントです。以下の条件に従って返信文を作成してください。' +
-  '・設定された「あなたの名前」を送信者として扱い、差出人（送信元）と混同しないでください。' +
-  '・メール本文から相手の氏名や敬称を推測し、わからない場合は「ご担当者様」と記載してください。' +
-  '・タイトルの出力は不要です。返信文のみを出力してください。' +
-  '・締めは署名を含めない名前のみを出力してください。';
 const PRICE_INPUT_PER_M = 0.05; // USD per 1M tokens (gpt-5-nano input)
 const PRICE_OUTPUT_PER_M = 0.4; // USD per 1M tokens (gpt-5-nano output)
 const AVG_CHARS_PER_TOKEN = 4;
