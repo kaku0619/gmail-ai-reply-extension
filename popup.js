@@ -55,7 +55,9 @@ async function saveSettings() {
 function disableGeneration(message) {
   elements.generate.disabled = true;
   elements.copy.disabled = true;
-  elements.emailSnippet.textContent = message;
+  if (message) {
+    elements.emailSnippet.textContent = message;
+  }
 }
 
 function enableGeneration() {
@@ -123,21 +125,41 @@ function sendMessageToTab(tabId, payload) {
   });
 }
 
+function ensureContentScript(tabId) {
+  return chrome.scripting.executeScript({
+    target: { tabId },
+    files: ['contentScript.js']
+  });
+}
+
 async function checkContext() {
   const tab = await getActiveGmailTab();
   if (!tab) {
     setBadge('未検出');
-    setNotice('Gmailタブを開いてからアイコンを押してください。');
-    disableGeneration('Gmailタブが見つかりません。');
+    setNotice('Gmailタブが見つかりません。Gmailを開いてからお試しください。');
+    elements.emailSnippet.textContent = '';
+    disableGeneration();
     setIcon(false);
     return;
   }
 
-  const response = await sendMessageToTab(tab.id, { type: 'CHECK_REPLY_CONTEXT' });
+  let response = await sendMessageToTab(tab.id, { type: 'CHECK_REPLY_CONTEXT' });
+
+  // If the content script is not yet injected (e.g., Gmail already open before install), inject and retry.
+  if (!response) {
+    try {
+      await ensureContentScript(tab.id);
+      response = await sendMessageToTab(tab.id, { type: 'CHECK_REPLY_CONTEXT' });
+    } catch (e) {
+      console.error('Failed to inject content script', e);
+    }
+  }
+
   if (!response) {
     setBadge('未検出');
     setNotice('ページ読み込み後に再度お試しください。');
-    disableGeneration('GmailのDOMを確認できませんでした。');
+    elements.emailSnippet.textContent = '';
+    disableGeneration();
     setIcon(false);
     return;
   }
@@ -154,7 +176,8 @@ async function checkContext() {
   } else {
     setBadge('返信欄なし');
     setNotice('「返信」ボタンを押してから拡張機能を開くと下書きを作成できます。');
-    disableGeneration('返信欄が開いていません。');
+    elements.emailSnippet.textContent = '返信欄が開いていません。';
+    disableGeneration();
     setIcon(false);
   }
 }
