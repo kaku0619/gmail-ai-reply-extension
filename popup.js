@@ -21,9 +21,7 @@ const elements = {
 };
 
 const DEFAULT_PROMPT =
-  'あなたは礼儀正しく簡潔な日本語メール返信を作るアシスタントです。' +
-  '事実に忠実に、相手の要望を踏まえ、必要なら質問は1つまでに留めます。' +
-  '挨拶・締め・署名を適宜含め、受信者にとって読みやすい返信文を作ってください。';
+  'シンプルな日本語で返信案を作ってください。';
 const SAVE_DEFAULT_LABEL = '保存';
 const COPY_DEFAULT_LABEL = '生成結果をコピー';
 const TOGGLE_LABEL_HIDDEN = '▶ 返信対象のメールを表示';
@@ -32,14 +30,16 @@ const OVERLAY_DEFAULT_MESSAGE =
   'Gmailの返信ボックスを開いている状態で再度拡張機能を起動してください。';
 const OVERLAY_SETTINGS_MESSAGE = '未入力の設定項目があります。';
 const BASE_SYSTEM_INSTRUCTIONS =
-  'あなたは受信者に返信するアシスタントです。' +
-  '設定された「あなたの名前」を送信者として扱い、差出人（送信元）と混同しないでください。' +
-  'メール本文から相手の氏名や敬称を推測し、わからない場合は「ご担当者様」と記載してください。';
-const PRICE_INPUT_PER_K = 0.00015; // USD per 1K tokens (gpt-4o-mini input)
-const PRICE_OUTPUT_PER_K = 0.0006; // USD per 1K tokens (gpt-4o-mini output)
+  'あなたは受信者に返信するアシスタントです。以下の条件に従って返信文を作成してください。' +
+  '・設定された「あなたの名前」を送信者として扱い、差出人（送信元）と混同しないでください。' +
+  '・メール本文から相手の氏名や敬称を推測し、わからない場合は「ご担当者様」と記載してください。' +
+  '・タイトルの出力は不要です。返信文のみを出力してください。' +
+  '・締めは署名を含めない名前のみを出力してください。';
+const PRICE_INPUT_PER_M = 0.05; // USD per 1M tokens (gpt-5-nano input)
+const PRICE_OUTPUT_PER_M = 0.4; // USD per 1M tokens (gpt-5-nano output)
 const AVG_CHARS_PER_TOKEN = 4;
 const USD_TO_JPY = 150;
-const MODEL = 'gpt-4o-mini';
+const MODEL = 'gpt-5-nano';
 const FETCH_TIMEOUT_MS = 15000;
 
 let lastContext = null;
@@ -93,8 +93,8 @@ function estimateTokens(text) {
 function estimateCost(promptText, userText, outputText) {
   const inputTokens = estimateTokens(promptText) + estimateTokens(userText);
   const outputTokens = estimateTokens(outputText);
-  const inputCost = (inputTokens / 1000) * PRICE_INPUT_PER_K;
-  const outputCost = (outputTokens / 1000) * PRICE_OUTPUT_PER_K;
+  const inputCost = (inputTokens / 1_000_000) * PRICE_INPUT_PER_M;
+  const outputCost = (outputTokens / 1_000_000) * PRICE_OUTPUT_PER_M;
   return {
     inputTokens,
     outputTokens,
@@ -334,30 +334,44 @@ async function generateDraft() {
 
   const payload = {
     model: MODEL,
-    messages: [
+    input: [
       {
         role: 'system',
         content: [
-          BASE_SYSTEM_INSTRUCTIONS,
-          prompt,
-          '以下の情報を踏まえて日本語で丁寧かつ簡潔な返信文を作成してください。',
-          '件名は返信文に含めないでください。',
-          '敬称・署名を適宜含め、箇条書きが有用なら活用してください。',
-          senderName
-            ? `署名には送信者として「${senderName}」を含めてください。`
-            : '署名は一般的な形式でまとめてください。'
-        ].join('\n')
+          {
+            type: 'input_text',
+            text: [
+              BASE_SYSTEM_INSTRUCTIONS,
+              prompt,
+              '以下の情報を踏まえて日本語で丁寧かつ簡潔な返信文を作成してください。',
+              '件名は返信文に含めないでください。',
+              '敬称・署名を適宜含め、箇条書きが有用なら活用してください。',
+              senderName
+                ? `署名には送信者として「${senderName}」を含めてください。`
+                : '署名は一般的な形式でまとめてください。'
+            ].join('\n')
+          }
+        ]
       },
-      { role: 'user', content: buildUserPayload(lastContext) }
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'input_text',
+            text: buildUserPayload(lastContext)
+          }
+        ]
+      }
     ],
-    temperature: 0.7
+    reasoning: { effort: 'minimal' },
+    max_output_tokens: 600
   };
 
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 
-    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+    const res = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -373,7 +387,19 @@ async function generateDraft() {
     }
 
     const data = await res.json();
-    const draftText = data?.choices?.[0]?.message?.content?.trim();
+    const draftText =
+      typeof data?.output_text === 'string' && data.output_text.trim()
+        ? data.output_text.trim()
+        : Array.isArray(data?.output)
+          ? data.output
+            .flatMap(item =>
+              (item?.content || [])
+                .filter(part => part?.type === 'output_text' && part.text)
+                .map(part => part.text)
+            )
+            .join('\n\n')
+            .trim()
+          : '';
     if (!draftText) {
       throw new Error('返信案を取得できませんでした。');
     }

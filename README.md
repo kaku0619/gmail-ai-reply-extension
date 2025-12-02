@@ -19,7 +19,7 @@ Gmail の返信欄に合わせて返信案を生成し、クリップボード�
    - 返信欄が開いていない場合: 設定タブのみ表示。
    - 返信欄が開いている場合: 対象メールの本文全文を表示し、返信案を生成可能。
 3. 設定タブで API キーとプリセットプロンプトを保存。
-4. 返信タブで「生成してコピー」を押すと、OpenAI Chat Completions API（デフォルト `gpt-4o-mini`）で返信案を生成し、クリップボードにコピー。
+4. 返信タブで「生成してコピー」を押すと、OpenAI Responses API（デフォルト `gpt-5-nano`）で返信案を生成し、クリップボードにコピー。
 
 ## ファイル構成
 - `manifest.json` — MV3 マニフェスト。
@@ -29,6 +29,7 @@ Gmail の返信欄に合わせて返信案を生成し、クリップボード�
 - `.env` — ローカルメモ用の API キー入れ物（Git から除外）。
 
 ## メモ・制限
-- 通信は `https://api.openai.com/v1/chat/completions` に直接送ります。プロキシや別ベンダーを使う場合は `popup.js` を調整してください。
+- 通信は `https://api.openai.com/v1/responses` に直接送ります。プロキシや別ベンダーを使う場合は `popup.js` を調整してください。
+- `gpt-5-nano` は `temperature` パラメータ非対応なので、リクエストに含めていません（Responses API の `reasoning.effort` は `minimal` に固定）。
 - Gmail の DOM 変更に依存しています。もし返信欄検知や本文取得が崩れた場合は、`contentScript.js` のセレクタを更新してください。
 - 返信案はテキストのみをコピーします。エディタへの自動挿入は行いません。
