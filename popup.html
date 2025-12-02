@@ -23,23 +23,30 @@
       <button class="tab-button" data-tab-target="settings">設定</button>
     </nav>
 
-    <section class="card tab-content active" data-tab="generate" id="draft-card">
-      <div class="card-head">
-        <h2>返信案を生成</h2>
-        <small id="email-subject">件名: -</small>
-      </div>
-      <section class="card notice" id="notice-card">
-        <p id="notice-text">Gmailタブを確認しています…</p>
-      </section>
-      <p class="snippet full" id="email-snippet">メール本文を取得中…</p>
-      <button id="generate" class="button primary">生成してコピー</button>
-      <div class="output">
-        <label for="draft">生成結果</label>
-        <textarea id="draft" rows="6" readonly></textarea>
-        <div class="output-actions">
-          <button id="copy" class="button ghost">クリップボードにコピー</button>
-          <span id="copy-status" class="muted"></span>
+      <section class="card tab-content active" data-tab="generate" id="draft-card">
+        <div class="overlay hidden" id="unavailable-overlay">
+          <p>Gmailの返信ボックスを開いた後にクリックしてください。</p>
         </div>
+        <div class="card-head">
+          <small id="email-subject">件名: -</small>
+        </div>
+        <section class="card notice" id="notice-card">
+          <p id="notice-text">Gmailタブを確認しています…</p>
+        </section>
+        <div class="input-preview">
+          <button id="toggle-snippet" class="button ghost small">
+            メール本文を表示
+          </button>
+          <p class="snippet full hidden" id="email-snippet">
+            メール本文を取得中…
+          </p>
+        </div>
+        <div class="output">
+          <label for="draft">生成結果</label>
+          <textarea id="draft" rows="6" readonly></textarea>
+          <div class="output-actions">
+            <span id="copy-status" class="muted"></span>
+          </div>
       </div>
     </section>
 

@@ -7,13 +7,13 @@ const elements = {
   prompt: document.getElementById('prompt'),
   saveSettings: document.getElementById('save-settings'),
   saveStatus: document.getElementById('save-status'),
-  generate: document.getElementById('generate'),
+  toggleSnippet: document.getElementById('toggle-snippet'),
   emailSubject: document.getElementById('email-subject'),
   emailSnippet: document.getElementById('email-snippet'),
   draft: document.getElementById('draft'),
-  copy: document.getElementById('copy'),
   copyStatus: document.getElementById('copy-status'),
   draftCard: document.getElementById('draft-card'),
+  unavailableOverlay: document.getElementById('unavailable-overlay'),
   tabButtons: document.querySelectorAll('[data-tab-target]'),
   tabContents: document.querySelectorAll('.tab-content')
 };
@@ -25,6 +25,8 @@ const DEFAULT_PROMPT =
 
 let lastContext = null;
 const iconCache = { default: null, available: null };
+let isGenerating = false;
+let autoGenerateTriggered = false;
 
 function setBadge(text) {
   elements.replyStatus.textContent = text;
@@ -44,6 +46,7 @@ async function loadSettings() {
   elements.apiKey.value = stored.apiKey || '';
   elements.prompt.value = stored.prompt || DEFAULT_PROMPT;
   elements.senderName.value = stored.senderName || '';
+  maybeAutoGenerate();
 }
 
 async function saveSettings() {
@@ -57,16 +60,13 @@ async function saveSettings() {
 }
 
 function disableGeneration(message) {
-  elements.generate.disabled = true;
-  elements.copy.disabled = true;
+  isGenerating = false;
   if (message) {
     elements.emailSnippet.textContent = message;
   }
 }
 
 function enableGeneration() {
-  elements.generate.disabled = false;
-  elements.copy.disabled = false;
 }
 
 function createIconData(color) {
@@ -98,6 +98,16 @@ function setIcon(available) {
     iconCache[key] = createIconData(available ? '#2f6bff' : '#c1c7d0');
   }
   chrome.action.setIcon({ imageData: iconCache[key] });
+}
+
+function maybeAutoGenerate() {
+  if (autoGenerateTriggered) return;
+  if (isGenerating) return;
+  const apiKey = elements.apiKey.value.trim();
+  if (!apiKey) return;
+  if (!lastContext) return;
+  autoGenerateTriggered = true;
+  generateDraft();
 }
 
 function switchTab(target) {
@@ -142,6 +152,7 @@ async function checkContext() {
     elements.emailSnippet.textContent = '';
     disableGeneration();
     setIcon(false);
+    elements.unavailableOverlay.classList.remove('hidden');
     return;
   }
 
@@ -163,10 +174,12 @@ async function checkContext() {
     elements.emailSnippet.textContent = '';
     disableGeneration();
     setIcon(false);
+    elements.unavailableOverlay.classList.remove('hidden');
     return;
   }
 
   lastContext = response.context;
+  autoGenerateTriggered = false;
   elements.emailSubject.textContent = `件名: ${lastContext.subject}`;
   elements.emailSnippet.textContent = lastContext.body || '本文が取得できませんでした。';
 
@@ -175,12 +188,16 @@ async function checkContext() {
     hideNotice();
     enableGeneration();
     setIcon(true);
+    elements.unavailableOverlay.classList.add('hidden');
+    maybeAutoGenerate();
   } else {
     setBadge('返信欄なし');
     setNotice('「返信」ボタンを押してから拡張機能を開くと下書きを作成できます。');
     elements.emailSnippet.textContent = '返信欄が開いていません。';
     disableGeneration();
     setIcon(false);
+    elements.unavailableOverlay.classList.remove('hidden');
+    elements.copyStatus.textContent = '';
   }
 }
 
@@ -194,9 +211,9 @@ async function generateDraft() {
     return;
   }
 
-  elements.generate.disabled = true;
-  elements.generate.textContent = '生成中…';
+  isGenerating = true;
   elements.copyStatus.textContent = '';
+  elements.copyStatus.textContent = '生成中…';
   elements.draft.value = '';
 
   const payload = {
@@ -251,24 +268,21 @@ async function generateDraft() {
     console.error(err);
     elements.copyStatus.textContent = err.message || '生成に失敗しました';
   } finally {
-    elements.generate.disabled = false;
-    elements.generate.textContent = '生成してコピー';
+    isGenerating = false;
   }
 }
 
-async function copyDraft() {
-  if (!elements.draft.value) return;
-  await navigator.clipboard.writeText(elements.draft.value);
-  elements.copyStatus.textContent = 'コピーしました';
-  setTimeout(() => (elements.copyStatus.textContent = ''), 1200);
+function toggleSnippet() {
+  const hidden = elements.emailSnippet.classList.toggle('hidden');
+  elements.toggleSnippet.textContent = hidden ? 'メール本文を表示' : 'メール本文を隠す';
 }
 
 function init() {
+  elements.replyStatus.style.display = 'none';
   loadSettings();
   checkContext();
   elements.saveSettings.addEventListener('click', saveSettings);
-  elements.generate.addEventListener('click', generateDraft);
-  elements.copy.addEventListener('click', copyDraft);
+  elements.toggleSnippet.addEventListener('click', toggleSnippet);
   elements.tabButtons.forEach(btn =>
     btn.addEventListener('click', () => switchTab(btn.dataset.tabTarget))
   );
