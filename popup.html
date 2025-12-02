@@ -11,10 +11,10 @@
 <body>
   <main class="popup">
     <header class="header">
-      <div>
-        <p class="eyebrow">Gmail返信補助</p>
-        <h1>AI Reply Assistant</h1>
-      </div>
+      <h1 class="title">
+        <span class="title-text">AI Reply Assistant</span>
+        <span class="title-emoji" aria-hidden="true">✉️🤖</span>
+      </h1>
       <span class="badge" id="reply-status">確認中…</span>
     </header>
 
@@ -24,22 +24,18 @@
     </nav>
 
     <section class="card tab-content active" data-tab="generate" id="draft-card">
-      <div class="overlay hidden" id="unavailable-overlay">
-        <p>Gmailの返信ボックスを開いている状態で再度拡張機能を起動してください。</p>
-      </div>
-      <section class="card notice" id="notice-card">
-        <p id="notice-text">Gmailタブを確認しています…</p>
-      </section>
+      <div id="alert-container" class="alert-container"></div>
       <div class="output">
         <div class="output-inline">
           <div class="spinner hidden" id="draft-spinner"></div>
           <div id="draft-status" class="muted hidden">返信文を生成中</div>
         </div>
-        <div class="draft-plain" id="draft">まだ生成していません。</div>
+        <div class="draft-plain" id="draft"></div>
         <span id="copy-status" class="muted status-bottom"></span>
         <button id="copy" class="button ghost full-width hidden">
           <span id="copy-text">生成結果をコピー</span>
         </button>
+        <p id="cost-info" class="muted status-bottom"></p>
       </div>
       <div class="input-preview hidden" id="input-preview">
         <button id="toggle-snippet" class="expander" type="button">

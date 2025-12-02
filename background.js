@@ -39,3 +39,11 @@ chrome.runtime.onMessage.addListener((message, sender) => {
     setIcon(message.hasReplyOpen, sender?.tab?.id);
   }
 });
+
+function initIcon() {
+  // Set a default icon so Chrome doesn't fall back to a generic badge.
+  setIcon(false);
+}
+
+chrome.runtime.onInstalled.addListener(initIcon);
+chrome.runtime.onStartup.addListener(initIcon);

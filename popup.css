@@ -58,8 +58,15 @@ body {
   margin: 0 0 2px;
 }
 
-h1 {
+.title {
   margin: 0;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.title-emoji {
   font-size: 18px;
 }
 
@@ -191,15 +198,15 @@ textarea {
 
 .snippet {
   background: #f3f6ff;
-  padding: 10px;
+  padding: 8px 10px;
   border-radius: 10px;
-  font-size: 13px;
+  font-size: 12px;
   color: #1f2752;
 }
 
 .snippet.full {
   white-space: pre-wrap;
-  max-height: 220px;
+  max-height: 200px;
   overflow: auto;
 }
 
@@ -221,18 +228,39 @@ textarea {
 }
 
 .overlay {
-  position: absolute;
-  inset: 0;
-  background: #fff;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: 16px;
+  border: 1px dashed #d6dded;
+  border-radius: 10px;
+  padding: 10px 12px;
   color: #1f2752;
   font-weight: 600;
-  z-index: 2;
+  background: #fff;
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.alert-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.alert-icon {
+  font-size: 16px;
+  line-height: 1.4;
+  color: #d97706;
+  margin-top: 2px;
+}
+
+.alert-text {
+  margin: 0;
+  font-size: 14px;
+  color: #1b1f3b;
+  font-weight: 700;
+}
+
+.alert-text + .alert-text {
+  margin-top: 2px;
 }
 
 .output-inline {
@@ -245,9 +273,10 @@ textarea {
 }
 
 .draft-plain {
-  min-height: 120px;
-  padding: 4px 0;
+  min-height: 100px;
+  padding: 6px 0;
   color: #1b1f3b;
+  font-size: 12px;
   white-space: pre-wrap;
 }
 
@@ -267,6 +296,10 @@ textarea {
 .status-bottom {
   display: block;
   margin-top: 6px;
+}
+
+.status-bottom#cost-info {
+  font-size: 11px;
 }
 
 @keyframes spin {
