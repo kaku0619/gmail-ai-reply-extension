@@ -325,22 +325,25 @@ async function generateDraft() {
   const payload = {
     model: 'gpt-4o-mini',
     messages: [
-      { role: 'system', content: prompt },
+      {
+        role: 'system',
+        content: [
+          prompt,
+          '以下の情報を踏まえて日本語で丁寧かつ簡潔な返信文を作成してください。',
+          '件名は返信文に含めないでください。',
+          '敬称・署名を適宜含め、箇条書きが有用なら活用してください。',
+          senderName
+            ? `署名には送信者として「${senderName}」を含めてください。`
+            : '署名は一般的な形式でまとめてください。'
+        ].join('\n')
+      },
       {
         role: 'user',
         content: [
           `件名: ${lastContext.subject}`,
           `差出人: ${lastContext.latestSender}`,
-          `自分の名前(署名用): ${senderName || '未設定'}`,
           '本文:',
-          lastContext.body || '(本文なし)',
-          '',
-          '上記メールへの簡潔で丁寧な日本語の返信文を作成してください。',
-          '返信文には件名を含めないでください。',
-          '敬称・署名を適宜含め、箇条書きが有用なら活用してください。',
-          senderName
-            ? `返信文には送信者として「${senderName}」の名前を入れてください。`
-            : '名前が未設定の場合は一般的な署名のままにしてください。'
+          lastContext.body || '(本文なし)'
         ].join('\n')
       }
     ],
@@ -383,16 +386,8 @@ async function generateDraft() {
       const userPayload = [
         `件名: ${lastContext.subject}`,
         `差出人: ${lastContext.latestSender}`,
-        `自分の名前(署名用): ${senderName || '未設定'}`,
         '本文:',
-        lastContext.body || '(本文なし)',
-        '',
-        '上記メールへの簡潔で丁寧な日本語の返信文を作成してください。',
-        '返信文には件名を含めないでください。',
-        '敬称・署名を適宜含め、箇条書きが有用なら活用してください。',
-        senderName
-          ? `返信文には送信者として「${senderName}」の名前を入れてください。`
-          : '名前が未設定の場合は一般的な署名のままにしてください。'
+        lastContext.body || '(本文なし)'
       ].join('\n');
       const cost = estimateCost(prompt, userPayload, elements.draft.textContent);
       const totalJpy = cost.totalUsd * USD_TO_JPY;
