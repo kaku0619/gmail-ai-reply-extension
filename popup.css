@@ -152,8 +152,24 @@ textarea {
   color: #1b1f3b;
 }
 
+.button.success {
+  background: #e7f6ec;
+  color: #1b8f3b;
+}
+
 .button:hover {
   transform: translateY(-1px);
+}
+
+.button.full-width {
+  width: 100%;
+  text-align: center;
+}
+
+.button .copy-check {
+  margin-left: 6px;
+  font-weight: 700;
+  color: #1b8f3b;
 }
 
 .button.small {
@@ -187,19 +203,9 @@ textarea {
   gap: 6px;
 }
 
-.output-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
 .muted {
   color: #6f7a94;
   font-size: 12px;
-}
-
-#draft {
-  min-height: 120px;
 }
 
 .input-preview {
@@ -211,7 +217,7 @@ textarea {
 .overlay {
   position: absolute;
   inset: 0;
-  background: rgba(255, 255, 255, 0.92);
+  background: #fff;
   border-radius: 12px;
   display: flex;
   align-items: center;
@@ -221,4 +227,42 @@ textarea {
   color: #1f2752;
   font-weight: 600;
   z-index: 2;
+}
+
+.output-inline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 4px;
+}
+
+.draft-plain {
+  min-height: 120px;
+  padding: 4px 0;
+  color: #1b1f3b;
+  white-space: pre-wrap;
+}
+
+.spinner {
+  width: 24px;
+  height: 24px;
+  border: 3px solid #d6dded;
+  border-top-color: #2f6bff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+.spinner.hidden {
+  display: none;
+}
+
+.status-bottom {
+  display: block;
+  margin-top: 6px;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

@@ -27,25 +27,27 @@
         <div class="overlay hidden" id="unavailable-overlay">
           <p>Gmailの返信ボックスを開いた後にクリックしてください。</p>
         </div>
-        <div class="card-head">
-          <small id="email-subject">件名: -</small>
-        </div>
         <section class="card notice" id="notice-card">
           <p id="notice-text">Gmailタブを確認しています…</p>
         </section>
-        <div class="input-preview">
+        <div class="output">
+          <div class="output-inline">
+            <div class="spinner hidden" id="draft-spinner"></div>
+          </div>
+          <div class="draft-plain" id="draft">まだ生成していません。</div>
+          <span id="copy-status" class="muted status-bottom"></span>
+          <button id="copy" class="button ghost full-width hidden">
+            <span id="copy-text">生成結果をコピー</span>
+            <span id="copy-check" class="copy-check hidden">✔</span>
+          </button>
+        </div>
+        <div class="input-preview hidden" id="input-preview">
           <button id="toggle-snippet" class="button ghost small">
             メール本文を表示
           </button>
-          <p class="snippet full hidden" id="email-snippet">
-            メール本文を取得中…
-          </p>
-        </div>
-        <div class="output">
-          <label for="draft">生成結果</label>
-          <textarea id="draft" rows="6" readonly></textarea>
-          <div class="output-actions">
-            <span id="copy-status" class="muted"></span>
+          <div class="snippet full hidden" id="email-snippet">
+            <p id="email-subject">件名: -</p>
+            <p id="email-body">メール本文を取得中…</p>
           </div>
       </div>
     </section>
@@ -68,8 +70,6 @@
         <textarea id="prompt" rows="5" placeholder="返信方針をここに記載"></textarea>
       </label>
       <button id="save-settings" class="button ghost">保存</button>
-      <p id="save-status" class="muted"></p>
-      <p class="hint">保存した内容は次回も利用されます。</p>
     </section>
   </main>
   <script src="popup.js"></script>

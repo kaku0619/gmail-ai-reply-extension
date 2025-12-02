@@ -6,14 +6,19 @@ const elements = {
   senderName: document.getElementById('sender-name'),
   prompt: document.getElementById('prompt'),
   saveSettings: document.getElementById('save-settings'),
-  saveStatus: document.getElementById('save-status'),
   toggleSnippet: document.getElementById('toggle-snippet'),
   emailSubject: document.getElementById('email-subject'),
+  emailBody: document.getElementById('email-body'),
   emailSnippet: document.getElementById('email-snippet'),
+  inputPreview: document.getElementById('input-preview'),
   draft: document.getElementById('draft'),
   copyStatus: document.getElementById('copy-status'),
   draftCard: document.getElementById('draft-card'),
   unavailableOverlay: document.getElementById('unavailable-overlay'),
+  draftSpinner: document.getElementById('draft-spinner'),
+  copyText: document.getElementById('copy-text'),
+  copyCheck: document.getElementById('copy-check'),
+  copy: document.getElementById('copy'),
   tabButtons: document.querySelectorAll('[data-tab-target]'),
   tabContents: document.querySelectorAll('.tab-content')
 };
@@ -22,6 +27,7 @@ const DEFAULT_PROMPT =
   'あなたは礼儀正しく、簡潔で親切なメール返信を作成するアシスタントです。' +
   '事実に忠実に、相手の要望を踏まえ、必要な場合は質問を1つまで含めます。' +
   '署名や挨拶を適宜含め、日本語で返信案を作ってください。';
+const SAVE_DEFAULT_LABEL = '保存';
 
 let lastContext = null;
 const iconCache = { default: null, available: null };
@@ -55,15 +61,25 @@ async function saveSettings() {
     senderName: elements.senderName.value.trim(),
     prompt: elements.prompt.value.trim() || DEFAULT_PROMPT
   });
-  elements.saveStatus.textContent = '設定を保存しました';
-  setTimeout(() => (elements.saveStatus.textContent = ''), 1600);
+  elements.saveSettings.textContent = '保存しました ✔';
+  elements.saveSettings.classList.add('success');
+  setTimeout(() => {
+    elements.saveSettings.textContent = SAVE_DEFAULT_LABEL;
+    elements.saveSettings.classList.remove('success');
+  }, 1600);
 }
 
 function disableGeneration(message) {
   isGenerating = false;
   if (message) {
-    elements.emailSnippet.textContent = message;
+    elements.emailBody.textContent = message;
   }
+  elements.draftSpinner.classList.add('hidden');
+  elements.copy.disabled = true;
+  elements.copy.classList.add('hidden');
+  elements.inputPreview.classList.add('hidden');
+  elements.toggleSnippet.textContent = 'メール本文を表示';
+  elements.emailSnippet.classList.add('hidden');
 }
 
 function enableGeneration() {
@@ -149,7 +165,8 @@ async function checkContext() {
   if (!tab) {
     setBadge('未検出');
     setNotice('Gmailタブが見つかりません。Gmailを開いてからお試しください。');
-    elements.emailSnippet.textContent = '';
+    elements.emailSubject.textContent = '件名: -';
+    elements.emailBody.textContent = '';
     disableGeneration();
     setIcon(false);
     elements.unavailableOverlay.classList.remove('hidden');
@@ -171,7 +188,8 @@ async function checkContext() {
   if (!response) {
     setBadge('未検出');
     setNotice('ページ読み込み後に再度お試しください。');
-    elements.emailSnippet.textContent = '';
+    elements.emailSubject.textContent = '件名: -';
+    elements.emailBody.textContent = '';
     disableGeneration();
     setIcon(false);
     elements.unavailableOverlay.classList.remove('hidden');
@@ -181,7 +199,7 @@ async function checkContext() {
   lastContext = response.context;
   autoGenerateTriggered = false;
   elements.emailSubject.textContent = `件名: ${lastContext.subject}`;
-  elements.emailSnippet.textContent = lastContext.body || '本文が取得できませんでした。';
+  elements.emailBody.textContent = lastContext.body || '本文が取得できませんでした。';
 
   if (response.hasReplyOpen) {
     setBadge('返信欄あり');
@@ -189,15 +207,19 @@ async function checkContext() {
     enableGeneration();
     setIcon(true);
     elements.unavailableOverlay.classList.add('hidden');
+    elements.copy.disabled = false;
+    elements.copy.classList.add('hidden');
+    elements.inputPreview.classList.add('hidden');
     maybeAutoGenerate();
   } else {
     setBadge('返信欄なし');
     setNotice('「返信」ボタンを押してから拡張機能を開くと下書きを作成できます。');
-    elements.emailSnippet.textContent = '返信欄が開いていません。';
+    elements.emailBody.textContent = '返信欄が開いていません。';
     disableGeneration();
     setIcon(false);
     elements.unavailableOverlay.classList.remove('hidden');
     elements.copyStatus.textContent = '';
+    elements.copy.disabled = true;
   }
 }
 
@@ -213,8 +235,15 @@ async function generateDraft() {
 
   isGenerating = true;
   elements.copyStatus.textContent = '';
-  elements.copyStatus.textContent = '生成中…';
-  elements.draft.value = '';
+  elements.draft.textContent = '';
+  elements.draftSpinner.classList.remove('hidden');
+  elements.copy.disabled = true;
+  elements.copy.classList.add('hidden');
+  elements.copyText.textContent = '生成結果をコピー';
+  elements.copyCheck.classList.add('hidden');
+  elements.inputPreview.classList.add('hidden');
+  elements.toggleSnippet.textContent = 'メール本文を表示';
+  elements.emailSnippet.classList.add('hidden');
 
   const payload = {
     model: 'gpt-4o-mini',
@@ -261,14 +290,31 @@ async function generateDraft() {
       throw new Error('返信案を取得できませんでした。');
     }
 
-    elements.draft.value = draftText;
-    await navigator.clipboard.writeText(draftText);
-    elements.copyStatus.textContent = '生成してコピーしました';
+    elements.draft.textContent = draftText;
+    elements.copyStatus.textContent = '';
   } catch (err) {
     console.error(err);
     elements.copyStatus.textContent = err.message || '生成に失敗しました';
   } finally {
     isGenerating = false;
+    elements.draftSpinner.classList.add('hidden');
+    elements.copy.disabled = false;
+    if (elements.draft.textContent) {
+      elements.copy.classList.remove('hidden');
+      elements.inputPreview.classList.remove('hidden');
+    }
+  }
+}
+
+async function copyDraft() {
+  if (!elements.draft.textContent) return;
+  try {
+    await navigator.clipboard.writeText(elements.draft.textContent);
+    elements.copyText.textContent = 'コピーしました';
+    elements.copyCheck.classList.remove('hidden');
+  } catch (err) {
+    elements.copyText.textContent = 'コピーに失敗しました';
+    elements.copyCheck.classList.add('hidden');
   }
 }
 
@@ -283,6 +329,7 @@ function init() {
   checkContext();
   elements.saveSettings.addEventListener('click', saveSettings);
   elements.toggleSnippet.addEventListener('click', toggleSnippet);
+  elements.copy.addEventListener('click', copyDraft);
   elements.tabButtons.forEach(btn =>
     btn.addEventListener('click', () => switchTab(btn.dataset.tabTarget))
   );
