@@ -1,5 +1,4 @@
 const elements = {
-  replyStatus: document.getElementById('reply-status'),
   apiKey: document.getElementById('api-key'),
   senderName: document.getElementById('sender-name'),
   prompt: document.getElementById('prompt'),
@@ -22,9 +21,9 @@ const elements = {
 };
 
 const DEFAULT_PROMPT =
-  'あなたは礼儀正しく、簡潔で親切なメール返信を作成するアシスタントです。' +
-  '事実に忠実に、相手の要望を踏まえ、必要な場合は質問を1つまで含めます。' +
-  '署名や挨拶を適宜含め、日本語で返信案を作ってください。';
+  'あなたは礼儀正しく簡潔な日本語メール返信を作るアシスタントです。' +
+  '事実に忠実に、相手の要望を踏まえ、必要なら質問は1つまでに留めます。' +
+  '挨拶・締め・署名を適宜含め、受信者にとって読みやすい返信文を作ってください。';
 const SAVE_DEFAULT_LABEL = '保存';
 const COPY_DEFAULT_LABEL = '生成結果をコピー';
 const TOGGLE_LABEL_HIDDEN = '▶ 返信対象のメールを表示';
@@ -32,25 +31,21 @@ const TOGGLE_LABEL_SHOWN = '▼ 返信対象のメールを隠す';
 const OVERLAY_DEFAULT_MESSAGE =
   'Gmailの返信ボックスを開いている状態で再度拡張機能を起動してください。';
 const OVERLAY_SETTINGS_MESSAGE = '未入力の設定項目があります。';
+const BASE_SYSTEM_INSTRUCTIONS =
+  'あなたは受信者に返信するアシスタントです。' +
+  '設定された「あなたの名前」を送信者として扱い、差出人（送信元）と混同しないでください。' +
+  'メール本文から相手の氏名や敬称を推測し、わからない場合は「ご担当者様」と記載してください。';
 const PRICE_INPUT_PER_K = 0.00015; // USD per 1K tokens (gpt-4o-mini input)
 const PRICE_OUTPUT_PER_K = 0.0006; // USD per 1K tokens (gpt-4o-mini output)
 const AVG_CHARS_PER_TOKEN = 4;
 const USD_TO_JPY = 150;
+const MODEL = 'gpt-4o-mini';
+const FETCH_TIMEOUT_MS = 15000;
 
 let lastContext = null;
 const iconCache = { default: null, available: null };
 let isGenerating = false;
 let autoGenerateTriggered = false;
-
-function setBadge(text) {
-  elements.replyStatus.textContent = text;
-}
-
-function setNotice(text) {
-}
-
-function hideNotice() {
-}
 
 function hasRequiredSettings() {
   const apiKey = elements.apiKey.value.trim();
@@ -73,21 +68,26 @@ function addAlert(message) {
   elements.alertContainer.appendChild(card);
 }
 
-function showOverlayWithSettingsFallback(baseMessage) {
+function showAlerts(messages = []) {
   elements.alertContainer.innerHTML = '';
-  addAlert(baseMessage);
-  if (!hasRequiredSettings()) {
-    addAlert(OVERLAY_SETTINGS_MESSAGE);
+  messages.forEach(msg => addAlert(msg));
+}
+
+function clearAlerts() {
+  elements.alertContainer.innerHTML = '';
+}
+
+function showOverlayWithSettingsFallback(baseMessage, includeSettingsFallback = true) {
+  const messages = [baseMessage];
+  if (includeSettingsFallback && !hasRequiredSettings()) {
+    messages.push(OVERLAY_SETTINGS_MESSAGE);
   }
+  showAlerts(messages);
 }
 
 function estimateTokens(text) {
   if (!text) return 0;
   return Math.ceil(text.length / AVG_CHARS_PER_TOKEN);
-}
-
-function formatUsd(value) {
-  return `$${value.toFixed(6)}`;
 }
 
 function estimateCost(promptText, userText, outputText) {
@@ -116,7 +116,7 @@ function resetCopyButton(show = false) {
 }
 
 function resetOutput() {
-  elements.alertContainer.innerHTML = '';
+  clearAlerts();
   elements.draft.textContent = '';
   elements.copyStatus.textContent = '';
   elements.costInfo.textContent = '';
@@ -148,13 +148,13 @@ async function saveSettings() {
   }, 1600);
 }
 
-function disableGeneration(message) {
+function disableGeneration(message, alertMessage = OVERLAY_DEFAULT_MESSAGE, includeSettings = true) {
   isGenerating = false;
   if (message) {
     elements.emailBody.textContent = message;
   }
   resetOutput();
-  showOverlayWithSettingsFallback(OVERLAY_DEFAULT_MESSAGE);
+  showOverlayWithSettingsFallback(alertMessage, includeSettings);
 }
 
 function enableGeneration() {
@@ -222,6 +222,11 @@ function getActiveGmailTab() {
 function sendMessageToTab(tabId, payload) {
   return new Promise(resolve => {
     chrome.tabs.sendMessage(tabId, payload, response => {
+      if (chrome.runtime.lastError) {
+        console.warn('sendMessage error:', chrome.runtime.lastError.message);
+        resolve(null);
+        return;
+      }
       resolve(response);
     });
   });
@@ -234,16 +239,23 @@ function ensureContentScript(tabId) {
   });
 }
 
+function buildUserPayload(context) {
+  if (!context) return '';
+  return [
+    `件名: ${context.subject}`,
+    `差出人: ${context.latestSender}`,
+    '本文:',
+    context.body || '(本文なし)'
+  ].join('\n');
+}
+
 async function checkContext() {
   const tab = await getActiveGmailTab();
   if (!tab) {
-    setBadge('未検出');
-    hideNotice();
     elements.emailSubject.textContent = '件名: -';
     elements.emailBody.textContent = '';
     disableGeneration();
     setIcon(false);
-    showOverlayWithSettingsFallback(OVERLAY_DEFAULT_MESSAGE);
     return;
   }
 
@@ -260,13 +272,19 @@ async function checkContext() {
   }
 
   if (!response) {
-    setBadge('未検出');
-    hideNotice();
     elements.emailSubject.textContent = '件名: -';
     elements.emailBody.textContent = '';
     disableGeneration();
     setIcon(false);
-    showOverlayWithSettingsFallback(OVERLAY_DEFAULT_MESSAGE);
+    return;
+  }
+
+  if (!response.context) {
+    lastContext = null;
+    elements.emailSubject.textContent = '件名: -';
+    elements.emailBody.textContent = '';
+    disableGeneration();
+    setIcon(false);
     return;
   }
 
@@ -276,27 +294,20 @@ async function checkContext() {
   elements.emailBody.textContent = lastContext.body || '本文が取得できませんでした。';
 
   if (response.hasReplyOpen) {
-    setBadge('返信欄あり');
-    hideNotice();
-    enableGeneration();
     setIcon(true);
-    elements.alertContainer.innerHTML = '';
+    clearAlerts();
     elements.copy.disabled = false;
     elements.copy.classList.add('hidden');
     elements.inputPreview.classList.add('hidden');
     if (!hasRequiredSettings()) {
-      disableGeneration();
-      showOverlay(OVERLAY_SETTINGS_MESSAGE);
+      disableGeneration(undefined, OVERLAY_SETTINGS_MESSAGE, false);
       return;
     }
     maybeAutoGenerate();
   } else {
-    setBadge('返信欄なし');
-    hideNotice();
     elements.emailBody.textContent = '返信欄が開いていません。';
     disableGeneration();
     setIcon(false);
-    showOverlayWithSettingsFallback(OVERLAY_DEFAULT_MESSAGE);
     elements.copyStatus.textContent = '';
     elements.copy.disabled = true;
   }
@@ -305,8 +316,7 @@ async function checkContext() {
 async function generateDraft() {
   if (!lastContext) return;
   if (!hasRequiredSettings()) {
-    disableGeneration();
-    showOverlay(OVERLAY_SETTINGS_MESSAGE);
+    disableGeneration(undefined, OVERLAY_SETTINGS_MESSAGE, false);
     return;
   }
   const apiKey = elements.apiKey.value.trim();
@@ -323,11 +333,12 @@ async function generateDraft() {
   elements.draftStatus.classList.remove('hidden');
 
   const payload = {
-    model: 'gpt-4o-mini',
+    model: MODEL,
     messages: [
       {
         role: 'system',
         content: [
+          BASE_SYSTEM_INSTRUCTIONS,
           prompt,
           '以下の情報を踏まえて日本語で丁寧かつ簡潔な返信文を作成してください。',
           '件名は返信文に含めないでください。',
@@ -337,28 +348,25 @@ async function generateDraft() {
             : '署名は一般的な形式でまとめてください。'
         ].join('\n')
       },
-      {
-        role: 'user',
-        content: [
-          `件名: ${lastContext.subject}`,
-          `差出人: ${lastContext.latestSender}`,
-          '本文:',
-          lastContext.body || '(本文なし)'
-        ].join('\n')
-      }
+      { role: 'user', content: buildUserPayload(lastContext) }
     ],
     temperature: 0.7
   };
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${apiKey}`
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(payload),
+      signal: controller.signal
     });
+    clearTimeout(timeout);
 
     if (!res.ok) {
       throw new Error(`API error: ${res.status} ${res.statusText}`);
@@ -380,15 +388,10 @@ async function generateDraft() {
     elements.draftSpinner.classList.add('hidden');
     elements.draftStatus.classList.add('hidden');
     elements.copy.disabled = false;
-    if (elements.draft.textContent) {
+    if (elements.draft.textContent && lastContext) {
       elements.copy.classList.remove('hidden');
       elements.inputPreview.classList.remove('hidden');
-      const userPayload = [
-        `件名: ${lastContext.subject}`,
-        `差出人: ${lastContext.latestSender}`,
-        '本文:',
-        lastContext.body || '(本文なし)'
-      ].join('\n');
+      const userPayload = buildUserPayload(lastContext);
       const cost = estimateCost(prompt, userPayload, elements.draft.textContent);
       const totalJpy = cost.totalUsd * USD_TO_JPY;
       elements.costInfo.textContent = `推定コスト: 約${totalJpy.toFixed(3)}円`;
@@ -418,7 +421,6 @@ function toggleSnippet() {
 }
 
 function init() {
-  elements.replyStatus.style.display = 'none';
   loadSettings();
   checkContext();
   elements.saveSettings.addEventListener('click', saveSettings);
