@@ -3,8 +3,10 @@ const elements = {
   noticeCard: document.getElementById('notice-card'),
   noticeText: document.getElementById('notice-text'),
   apiKey: document.getElementById('api-key'),
+  senderName: document.getElementById('sender-name'),
   prompt: document.getElementById('prompt'),
   saveSettings: document.getElementById('save-settings'),
+  saveStatus: document.getElementById('save-status'),
   generate: document.getElementById('generate'),
   emailSubject: document.getElementById('email-subject'),
   emailSnippet: document.getElementById('email-snippet'),
@@ -38,18 +40,20 @@ function hideNotice() {
 }
 
 async function loadSettings() {
-  const stored = await chrome.storage.sync.get(['apiKey', 'prompt']);
+  const stored = await chrome.storage.sync.get(['apiKey', 'prompt', 'senderName']);
   elements.apiKey.value = stored.apiKey || '';
   elements.prompt.value = stored.prompt || DEFAULT_PROMPT;
+  elements.senderName.value = stored.senderName || '';
 }
 
 async function saveSettings() {
   await chrome.storage.sync.set({
     apiKey: elements.apiKey.value.trim(),
+    senderName: elements.senderName.value.trim(),
     prompt: elements.prompt.value.trim() || DEFAULT_PROMPT
   });
-  elements.copyStatus.textContent = '設定を保存しました';
-  setTimeout(() => (elements.copyStatus.textContent = ''), 1600);
+  elements.saveStatus.textContent = '設定を保存しました';
+  setTimeout(() => (elements.saveStatus.textContent = ''), 1600);
 }
 
 function disableGeneration(message) {
@@ -185,6 +189,7 @@ async function checkContext() {
 async function generateDraft() {
   if (!lastContext) return;
   const apiKey = elements.apiKey.value.trim();
+  const senderName = elements.senderName.value.trim();
   const prompt = elements.prompt.value.trim() || DEFAULT_PROMPT;
   if (!apiKey) {
     setNotice('APIキーを入力してください。');
@@ -205,11 +210,16 @@ async function generateDraft() {
         content: [
           `件名: ${lastContext.subject}`,
           `差出人: ${lastContext.latestSender}`,
+          `自分の名前(署名用): ${senderName || '未設定'}`,
           '本文:',
           lastContext.body || '(本文なし)',
           '',
           '上記メールへの簡潔で丁寧な日本語の返信文を作成してください。',
-          '敬称・署名を適宜含め、箇条書きが有用なら活用してください。'
+          '返信文には件名を含めないでください。',
+          '敬称・署名を適宜含め、箇条書きが有用なら活用してください。',
+          senderName
+            ? `返信文には送信者として「${senderName}」の名前を入れてください。`
+            : '名前が未設定の場合は一般的な署名のままにしてください。'
         ].join('\n')
       }
     ],
