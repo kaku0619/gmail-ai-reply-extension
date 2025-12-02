@@ -324,25 +324,31 @@ async function generateDraft() {
   elements.draftSpinner.classList.remove('hidden');
   elements.draftStatus.classList.remove('hidden');
 
+  const baseInstructionsText = [
+    '【基本ルール】',
+    BASE_SYSTEM_INSTRUCTIONS,
+    '以下の情報を踏まえて日本語で丁寧かつ簡潔な返信文を作成してください。',
+    '件名は返信文に含めないでください。',
+    '敬称・署名を適宜含め、箇条書きが有用なら活用してください。',
+    senderName
+      ? `署名には送信者として「${senderName}」を含めてください。`
+      : '署名は一般的な形式でまとめてください。'
+  ].join('\n');
+
+  const stylePromptText = [
+    '【返信スタイル（最優先）】',
+    prompt,
+    '上記の基本ルールと矛盾する場合は、このスタイル指示を優先してください。'
+  ].join('\n');
+
   const payload = {
     model: MODEL,
     input: [
       {
         role: 'system',
         content: [
-          {
-            type: 'input_text',
-            text: [
-              BASE_SYSTEM_INSTRUCTIONS,
-              prompt,
-              '以下の情報を踏まえて日本語で丁寧かつ簡潔な返信文を作成してください。',
-              '件名は返信文に含めないでください。',
-              '敬称・署名を適宜含め、箇条書きが有用なら活用してください。',
-              senderName
-                ? `署名には送信者として「${senderName}」を含めてください。`
-                : '署名は一般的な形式でまとめてください。'
-            ].join('\n')
-          }
+          { type: 'input_text', text: baseInstructionsText },
+          { type: 'input_text', text: stylePromptText }
         ]
       },
       {
@@ -355,7 +361,7 @@ async function generateDraft() {
         ]
       }
     ],
-    reasoning: { effort: 'minimal' },
+    reasoning: { effort: 'low' },
     max_output_tokens: 600
   };
 
