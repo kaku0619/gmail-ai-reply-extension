@@ -23,46 +23,45 @@
       <button class="tab-button" data-tab-target="settings">設定</button>
     </nav>
 
-      <section class="card tab-content active" data-tab="generate" id="draft-card">
-        <div class="overlay hidden" id="unavailable-overlay">
-          <p>Gmailの返信ボックスを開いた後にクリックしてください。</p>
+    <section class="card tab-content active" data-tab="generate" id="draft-card">
+      <div class="overlay hidden" id="unavailable-overlay">
+        <p>Gmailの返信ボックスを開いている状態で再度拡張機能を起動してください。</p>
+      </div>
+      <section class="card notice" id="notice-card">
+        <p id="notice-text">Gmailタブを確認しています…</p>
+      </section>
+      <div class="output">
+        <div class="output-inline">
+          <div class="spinner hidden" id="draft-spinner"></div>
+          <div id="draft-status" class="muted hidden">返信文を生成中</div>
         </div>
-        <section class="card notice" id="notice-card">
-          <p id="notice-text">Gmailタブを確認しています…</p>
-        </section>
-        <div class="output">
-          <div class="output-inline">
-            <div class="spinner hidden" id="draft-spinner"></div>
-            <div id="draft-status" class="muted hidden">返信文を生成中</div>
-          </div>
-          <div class="draft-plain" id="draft">まだ生成していません。</div>
-          <span id="copy-status" class="muted status-bottom"></span>
-          <button id="copy" class="button ghost full-width hidden">
-            <span id="copy-text">生成結果をコピー</span>
-          </button>
+        <div class="draft-plain" id="draft">まだ生成していません。</div>
+        <span id="copy-status" class="muted status-bottom"></span>
+        <button id="copy" class="button ghost full-width hidden">
+          <span id="copy-text">生成結果をコピー</span>
+        </button>
+      </div>
+      <div class="input-preview hidden" id="input-preview">
+        <button id="toggle-snippet" class="expander" type="button">
+          ▶ メール本文を表示
+        </button>
+        <div class="snippet full hidden" id="email-snippet">
+          <p id="email-subject">件名: -</p>
+          <p id="email-body">メール本文を取得中…</p>
         </div>
-        <div class="input-preview hidden" id="input-preview">
-          <button id="toggle-snippet" class="expander" type="button">
-            ▶ メール本文を表示
-          </button>
-          <div class="snippet full hidden" id="email-snippet">
-            <p id="email-subject">件名: -</p>
-            <p id="email-body">メール本文を取得中…</p>
-          </div>
       </div>
     </section>
 
     <section class="card tab-content" data-tab="settings">
       <div class="card-head">
         <h2>設定</h2>
-        <small>指示文とAPIキーを保存します</small>
       </div>
       <label class="field">
         <span>APIキー (OpenAIのみ)</span>
         <input type="password" id="api-key" placeholder="sk-..." />
       </label>
       <label class="field">
-        <span>差出人の名前</span>
+        <span>あなたの名前</span>
         <input type="text" id="sender-name" placeholder="例: 山田太郎" />
       </label>
       <label class="field">
