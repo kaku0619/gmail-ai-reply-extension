@@ -362,7 +362,7 @@ async function generateDraft() {
       }
     ],
     reasoning: { effort: 'low' },
-    max_output_tokens: 600
+    max_output_tokens: 2000
   };
 
   try {
@@ -380,11 +380,19 @@ async function generateDraft() {
     });
     clearTimeout(timeout);
 
+    let data = null;
     if (!res.ok) {
-      throw new Error(`API error: ${res.status} ${res.statusText}`);
+      // Try to read error body for clearer message
+      try {
+        data = await res.json();
+      } catch (e) {
+        // ignore JSON parse error, use status text instead
+      }
+      const apiMessage = data?.error?.message || res.statusText || 'unknown error';
+      throw new Error(`API error: ${res.status} ${apiMessage}`);
     }
 
-    const data = await res.json();
+    data = data || (await res.json());
     const draftText =
       typeof data?.output_text === 'string' && data.output_text.trim()
         ? data.output_text.trim()
@@ -399,7 +407,10 @@ async function generateDraft() {
             .trim()
           : '';
     if (!draftText) {
-      throw new Error('返信案を取得できませんでした。');
+      const reason =
+        data?.error?.message ||
+        'APIから返信文の出力フィールドが返されませんでした。';
+      throw new Error(`返信案を取得できませんでした: ${reason}`);
     }
 
     elements.draft.textContent = draftText;
