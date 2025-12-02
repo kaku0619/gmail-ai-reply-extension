@@ -80,11 +80,9 @@ function createIconData(color) {
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, size, size);
     ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(size / 2, size / 2, size / 2 - 1, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.fillRect(0, 0, size, size);
     ctx.fillStyle = '#fff';
-    ctx.font = `${Math.floor(size * 0.6)}px sans-serif`;
+    ctx.font = `bold ${Math.floor(size * 0.7)}px sans-serif`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('R', size / 2, size / 2 + 1);
@@ -97,7 +95,7 @@ function createIconData(color) {
 function setIcon(available) {
   const key = available ? 'available' : 'default';
   if (!iconCache[key]) {
-    iconCache[key] = createIconData(available ? '#2f6bff' : '#9aa0b1');
+    iconCache[key] = createIconData(available ? '#2f6bff' : '#c1c7d0');
   }
   chrome.action.setIcon({ imageData: iconCache[key] });
 }

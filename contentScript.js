@@ -10,6 +10,8 @@ const MESSAGE_CONTAINER_SELECTORS = [
   'div.if', // conversation item wrapper
   'div.adn' // legacy conversation item
 ];
+let lastHasReplyOpen = null;
+let stateCheckTimer = null;
 
 function findReplyEditors() {
   const nodes = REPLY_BODY_SELECTORS.flatMap(sel =>
@@ -106,12 +108,49 @@ function getConversationContext() {
   return getContextFromEditor(editor);
 }
 
+function notifyReplyState(hasReplyOpen) {
+  chrome.runtime.sendMessage({ type: 'REPLY_CONTEXT_STATE', hasReplyOpen });
+}
+
+function updateReplyState(context) {
+  const hasReplyOpen = !!context;
+  if (hasReplyOpen !== lastHasReplyOpen) {
+    lastHasReplyOpen = hasReplyOpen;
+    notifyReplyState(hasReplyOpen);
+  }
+}
+
+function checkAndNotifyState() {
+  const context = getConversationContext();
+  updateReplyState(context);
+  return context;
+}
+
+function setupReplyObserver() {
+  const observer = new MutationObserver(() => {
+    clearTimeout(stateCheckTimer);
+    stateCheckTimer = setTimeout(checkAndNotifyState, 200);
+  });
+
+  if (document.body) {
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true
+    });
+  }
+
+  // Initial state push
+  checkAndNotifyState();
+}
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'CHECK_REPLY_CONTEXT') {
-    const context = getConversationContext();
+    const context = checkAndNotifyState();
     sendResponse({
       hasReplyOpen: !!context,
       context
     });
   }
 });
+
+setupReplyObserver();
