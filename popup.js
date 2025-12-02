@@ -16,8 +16,7 @@ const elements = {
   draftCard: document.getElementById('draft-card'),
   unavailableOverlay: document.getElementById('unavailable-overlay'),
   draftSpinner: document.getElementById('draft-spinner'),
-  copyText: document.getElementById('copy-text'),
-  copyCheck: document.getElementById('copy-check'),
+  draftStatus: document.getElementById('draft-status'),
   copy: document.getElementById('copy'),
   tabButtons: document.querySelectorAll('[data-tab-target]'),
   tabContents: document.querySelectorAll('.tab-content')
@@ -28,6 +27,7 @@ const DEFAULT_PROMPT =
   '事実に忠実に、相手の要望を踏まえ、必要な場合は質問を1つまで含めます。' +
   '署名や挨拶を適宜含め、日本語で返信案を作ってください。';
 const SAVE_DEFAULT_LABEL = '保存';
+const COPY_DEFAULT_LABEL = '生成結果をコピー';
 
 let lastContext = null;
 const iconCache = { default: null, available: null };
@@ -75,10 +75,11 @@ function disableGeneration(message) {
     elements.emailBody.textContent = message;
   }
   elements.draftSpinner.classList.add('hidden');
+  elements.draftStatus.classList.add('hidden');
   elements.copy.disabled = true;
   elements.copy.classList.add('hidden');
   elements.inputPreview.classList.add('hidden');
-  elements.toggleSnippet.textContent = 'メール本文を表示';
+  elements.toggleSnippet.textContent = TOGGLE_LABEL_HIDDEN;
   elements.emailSnippet.classList.add('hidden');
 }
 
@@ -237,12 +238,13 @@ async function generateDraft() {
   elements.copyStatus.textContent = '';
   elements.draft.textContent = '';
   elements.draftSpinner.classList.remove('hidden');
+  elements.draftStatus.classList.remove('hidden');
   elements.copy.disabled = true;
   elements.copy.classList.add('hidden');
-  elements.copyText.textContent = '生成結果をコピー';
-  elements.copyCheck.classList.add('hidden');
+  elements.copy.textContent = COPY_DEFAULT_LABEL;
+  elements.copy.classList.remove('success');
   elements.inputPreview.classList.add('hidden');
-  elements.toggleSnippet.textContent = 'メール本文を表示';
+  elements.toggleSnippet.textContent = TOGGLE_LABEL_HIDDEN;
   elements.emailSnippet.classList.add('hidden');
 
   const payload = {
@@ -298,6 +300,7 @@ async function generateDraft() {
   } finally {
     isGenerating = false;
     elements.draftSpinner.classList.add('hidden');
+    elements.draftStatus.classList.add('hidden');
     elements.copy.disabled = false;
     if (elements.draft.textContent) {
       elements.copy.classList.remove('hidden');
@@ -310,17 +313,21 @@ async function copyDraft() {
   if (!elements.draft.textContent) return;
   try {
     await navigator.clipboard.writeText(elements.draft.textContent);
-    elements.copyText.textContent = 'コピーしました';
-    elements.copyCheck.classList.remove('hidden');
+    elements.copy.textContent = 'コピーしました ✔';
+    elements.copy.classList.add('success');
+    setTimeout(() => {
+      elements.copy.textContent = COPY_DEFAULT_LABEL;
+      elements.copy.classList.remove('success');
+    }, 1600);
   } catch (err) {
-    elements.copyText.textContent = 'コピーに失敗しました';
-    elements.copyCheck.classList.add('hidden');
+    elements.copy.textContent = 'コピーに失敗しました';
+    elements.copy.classList.remove('success');
   }
 }
 
 function toggleSnippet() {
   const hidden = elements.emailSnippet.classList.toggle('hidden');
-  elements.toggleSnippet.textContent = hidden ? 'メール本文を表示' : 'メール本文を隠す';
+  elements.toggleSnippet.textContent = hidden ? TOGGLE_LABEL_HIDDEN : TOGGLE_LABEL_SHOWN;
 }
 
 function init() {
@@ -337,3 +344,5 @@ function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+const TOGGLE_LABEL_HIDDEN = '▶ メール本文を表示';
+const TOGGLE_LABEL_SHOWN = '▼ メール本文を隠す';
