@@ -96,9 +96,12 @@ function getContextFromEditor(editor) {
   const bodyNodes = Array.from(
     document.querySelectorAll('div[role="listitem"] div.a3s')
   );
-  const visibleBodies = bodyNodes.filter(node => sanitizeText(node.innerText).length);
+  const visibleBodies = bodyNodes.filter(node => {
+    const text = node?.innerText || '';
+    return sanitizeText(text).length > 0;
+  });
   const latest = pickLatest(visibleBodies);
-  const body = latest ? latest.innerText.trim() : '';
+  const body = latest?.innerText?.trim() || '';
   const senderNodes = Array.from(
     document.querySelectorAll(
       'div[role="listitem"] span.gD[email], div[role="listitem"] span[email], div[role="listitem"] span.gD'

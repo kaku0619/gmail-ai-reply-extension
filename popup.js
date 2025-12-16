@@ -73,23 +73,6 @@ function showOverlayWithSettingsFallback(baseMessage, includeSettingsFallback = 
   showAlerts(messages);
 }
 
-function estimateTokens(text) {
-  if (!text) return 0;
-  return Math.ceil(text.length / AVG_CHARS_PER_TOKEN);
-}
-
-function estimateCost(promptText, userText, outputText) {
-  const inputTokens = estimateTokens(promptText) + estimateTokens(userText);
-  const outputTokens = estimateTokens(outputText);
-  const inputCost = (inputTokens / 1_000_000) * PRICE_INPUT_PER_M;
-  const outputCost = (outputTokens / 1_000_000) * PRICE_OUTPUT_PER_M;
-  return {
-    inputTokens,
-    outputTokens,
-    totalUsd: inputCost + outputCost
-  };
-}
-
 function resetSnippet() {
   elements.inputPreview.classList.add('hidden');
   elements.emailSnippet.classList.add('hidden');
@@ -138,7 +121,6 @@ async function loadSettings() {
   elements.apiKey.value = stored.apiKey || '';
   elements.prompt.value = stored.prompt || DEFAULT_PROMPT;
   elements.senderName.value = stored.senderName || '';
-  maybeAutoGenerate();
 }
 
 async function saveSettings() {
@@ -383,8 +365,10 @@ async function generateDraft() {
     max_output_tokens: 2000
   };
 
+  let responseData = null;
   try {
     const data = await callResponses(apiKey, payload, FETCH_TIMEOUT_MS);
+    responseData = data;
     const draftText =
       typeof data?.output_text === 'string' && data.output_text.trim()
         ? data.output_text.trim()
@@ -416,10 +400,12 @@ async function generateDraft() {
     if (elements.draft.textContent && lastContext) {
       elements.copy.classList.remove('hidden');
       elements.inputPreview.classList.remove('hidden');
-      const userPayload = buildUserPayload(lastContext);
-      const cost = estimateCost(prompt, userPayload, elements.draft.textContent);
-      const totalJpy = cost.totalUsd * USD_TO_JPY;
-      elements.costInfo.textContent = `推定コスト: 約${totalJpy.toFixed(3)}円`;
+      // レスポンス内のusage情報から実際のコストを計算
+      const cost = calculateCostFromUsage(responseData?.usage);
+      if (cost) {
+        const totalJpy = cost.totalUsd * USD_TO_JPY;
+        elements.costInfo.textContent = `コスト: ${totalJpy.toFixed(3)}円 (入力: ${cost.inputTokens}トークン, 出力: ${cost.outputTokens}トークン)`;
+      }
     }
   }
 }
@@ -445,9 +431,7 @@ function toggleSnippet() {
   elements.toggleSnippet.textContent = hidden ? TOGGLE_LABEL_HIDDEN : TOGGLE_LABEL_SHOWN;
 }
 
-function init() {
-  loadSettings();
-  checkContext();
+async function init() {
   elements.saveSettings.addEventListener('click', saveSettings);
   elements.toggleSnippet.addEventListener('click', toggleSnippet);
   elements.copy.addEventListener('click', copyDraft);
@@ -455,6 +439,14 @@ function init() {
     btn.addEventListener('click', () => switchTab(btn.dataset.tabTarget))
   );
   setIcon(false);
+  try {
+    await loadSettings();
+    await checkContext();
+  } catch (err) {
+    console.error(err);
+  }
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+  void init();
+});
