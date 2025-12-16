@@ -27,7 +27,7 @@ const TOGGLE_LABEL_SHOWN = '▼ 返信対象のメールを隠す';
 const OVERLAY_DEFAULT_MESSAGE =
   'Gmailの返信ボックスを開いている状態で再度拡張機能を起動してください。';
 const OVERLAY_SETTINGS_MESSAGE = '未入力の設定項目があります。';
-const MODEL = 'gpt-5-nano';
+const MODEL = 'gpt-5-mini';
 const FETCH_TIMEOUT_MS = 15000;
 
 let lastContext = null;
@@ -223,11 +223,16 @@ function getActiveGmailTab() {
   });
 }
 
-function sendMessageToTab(tabId, payload) {
+function sendMessageToTab(tabId, payload, { logErrors = true } = {}) {
   return new Promise(resolve => {
     chrome.tabs.sendMessage(tabId, payload, response => {
-      if (chrome.runtime.lastError) {
-        console.warn('sendMessage error:', chrome.runtime.lastError.message);
+      const lastError = chrome.runtime.lastError;
+      if (lastError) {
+        const message = lastError?.message || String(lastError);
+        const benign = message.includes('Receiving end does not exist');
+        if (logErrors && !benign) {
+          console.warn('sendMessage error:', message);
+        }
         resolve(null);
         return;
       }
@@ -247,7 +252,7 @@ function buildUserPayload(context) {
   if (!context) return '';
   return [
     `件名: ${context.subject}`,
-    `差出人: ${context.latestSender}`,
+    `差出人 (From/返信相手): ${context.latestSender}`,
     '本文:',
     context.body || '(本文なし)'
   ].join('\n');
@@ -263,7 +268,11 @@ async function checkContext() {
     return;
   }
 
-  let response = await sendMessageToTab(tab.id, { type: 'CHECK_REPLY_CONTEXT' });
+  let response = await sendMessageToTab(
+    tab.id,
+    { type: 'CHECK_REPLY_CONTEXT' },
+    { logErrors: false }
+  );
 
   // If the content script is not yet injected (e.g., Gmail already open before install), inject and retry.
   if (!response) {

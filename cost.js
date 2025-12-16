@@ -1,6 +1,6 @@
 // Lightweight cost helpers for token estimation and pricing.
-const PRICE_INPUT_PER_M = 0.05; // USD per 1M tokens (gpt-5-nano input)
-const PRICE_OUTPUT_PER_M = 0.4; // USD per 1M tokens (gpt-5-nano output)
+const PRICE_INPUT_PER_M = 0.25; // USD per 1M tokens (gpt-5-mini input)
+const PRICE_OUTPUT_PER_M = 2.00; // USD per 1M tokens (gpt-5-mini output)
 const AVG_CHARS_PER_TOKEN = 4;
 const USD_TO_JPY = 150;
 

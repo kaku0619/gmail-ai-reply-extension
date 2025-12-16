@@ -39,6 +39,14 @@ function sanitizeText(text = '', limit = 2000) {
   return trimmed.length > limit ? `${trimmed.slice(0, limit)}...` : trimmed;
 }
 
+function formatSenderNode(node) {
+  if (!node) return 'Unknown';
+  const name = node.textContent?.trim();
+  const email = node.getAttribute?.('email')?.trim();
+  if (name && email) return `${name} <${email}>`;
+  return name || email || 'Unknown';
+}
+
 function findMessageContainerFromEditor(editor) {
   let node = editor;
   while (node && node !== document.body) {
@@ -63,8 +71,10 @@ function extractBodyFromContainer(container) {
 
 function extractSenderFromContainer(container) {
   const senderNode =
-    container.querySelector('span.gD') || container.querySelector('span[email]');
-  return senderNode?.textContent?.trim() || 'Unknown';
+    container.querySelector('span.gD[email]') ||
+    container.querySelector('span[email]') ||
+    container.querySelector('span.gD');
+  return formatSenderNode(senderNode);
 }
 
 function getContextFromEditor(editor) {
@@ -90,9 +100,11 @@ function getContextFromEditor(editor) {
   const latest = pickLatest(visibleBodies);
   const body = latest ? latest.innerText.trim() : '';
   const senderNodes = Array.from(
-    document.querySelectorAll('div[role="listitem"] span.gD')
+    document.querySelectorAll(
+      'div[role="listitem"] span.gD[email], div[role="listitem"] span[email], div[role="listitem"] span.gD'
+    )
   );
-  const latestSender = pickLatest(senderNodes)?.textContent?.trim() || 'Unknown';
+  const latestSender = formatSenderNode(pickLatest(senderNodes));
 
   return {
     subject,
